@@ -1,8 +1,9 @@
 import discord
 from discord.ext import commands
 from discord_components import DiscordComponents, ComponentsBot, Select, SelectOption
-from math import ceil
+#from math import ceil
 from itertools import chain
+import typing
 
 client = ComponentsBot(command_prefix = "drb$")
 
@@ -30,9 +31,8 @@ class SplitRoles(commands.RoleConverter):
 @client.command()
 @commands.guild_only()
 @commands.has_permissions(administrator=True)
-async def dropdown(ctx, channel : discord.TextChannel, msg_text, placeholder_texts, *, dropdowns : SplitRoles):
+async def dropdown(ctx, channel : discord.TextChannel, msg_text, placeholder_texts, dropdowns : SplitRoles):
     placeholder_texts = placeholder_texts.split(" | ")
-    print (dropdowns)
     """avg_opts = len(roles) / (ceil(len(roles) / 25))
     switch_opts = avg_opts
     opt_no = 1
@@ -50,7 +50,6 @@ async def dropdown(ctx, channel : discord.TextChannel, msg_text, placeholder_tex
     ddi = 0
     components = []
     for dd in dropdowns:
-        print(dd)
         components.append ( Select(placeholder = placeholder_texts[ddi], options = [SelectOption(label = role.name, value = role.id) for role in dd]))
         ddi += 1
     msg = await channel.send(content=msg_text, components = components )
@@ -75,6 +74,9 @@ async def on_select_option(interaction):
     # remove prev role
     roleOptions = [comp.components[0].options for comp in interaction.message.components]
     roleOptions = list(chain(*roleOptions)) # flattern above list
+
+    umbrella_options = [comp.components[0].placeholder for comp in interaction.message.components]
+
     userRolesIds = [role.id for role in interaction.user.roles]
     for roleOption in roleOptions:
         rid = int(roleOption.value)
@@ -86,6 +88,20 @@ async def on_select_option(interaction):
             except Exception as e:
                 print(e)
 
+    for uo in umbrella_options:
+        ur = discord.utils.get(interaction.guild.roles,name=uo)
+        if ur.id in userRolesIds:
+            try:
+                await interaction.user.remove_roles(ur)
+            except Exception as e:
+                print(e)
+
+    ur = discord.utils.get(interaction.guild.roles,name=interaction.component.placeholder)
+    if ur != None:
+        try:
+            await interaction.user.add_roles(ur)
+        except Exception as e:
+            print(e)
 
     role = interaction.guild.get_role(int(interaction.values[0]))
     await interaction.user.add_roles(role)
