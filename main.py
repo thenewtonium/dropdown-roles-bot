@@ -1,17 +1,59 @@
 import discord
 from discord.ext import commands
 from discord_components import DiscordComponents, ComponentsBot, Select, SelectOption
+from math import ceil
+from itertools import chain
 
 client = ComponentsBot(command_prefix = "drb$")
+
+
+class SplitRoles(commands.RoleConverter):
+    async def convert(self, ctx, argument):
+        lists = argument.split(" | ")
+        print(lists)
+        dropdowns = []
+        for roles in lists:
+            options = []
+            roleslist = roles.split(" ")
+            print(roleslist)
+            for roletext in roleslist:
+                try:
+                    role = await super().convert(ctx, roletext)
+                    options.append(role)
+                except Exception as e:
+                    print(e)
+
+            dropdowns.append(options)
+
+        return dropdowns
 
 @client.command()
 @commands.guild_only()
 @commands.has_permissions(administrator=True)
-async def dropdown(ctx, msg_text, placeholder_text, channel : discord.TextChannel, roles : commands.Greedy[discord.Role]):
+async def dropdown(ctx, channel : discord.TextChannel, msg_text, placeholder_texts, *, dropdowns : SplitRoles):
+    placeholder_texts = placeholder_texts.split(" | ")
+    print (dropdowns)
+    """avg_opts = len(roles) / (ceil(len(roles) / 25))
+    switch_opts = avg_opts
+    opt_no = 1
+    dropdown_index = 0
+    components = []
     options = []
     for role in roles:
-        options.append(SelectOption(label = role.name, value= role.id))
-    msg = await channel.send(content=msg_text, components = [Select(placeholder = placeholder_text, options=options)] )
+        options.append(SelectOption(label = role.name, value = role.id))
+        opt_no += 1
+        if opt_no > switch_opts:
+            switch_opts += avg_opts
+            components.append(Select(placeholder = placeholder_texts[dropdown_index], options=options))
+            options = []
+            dropdown_index += 1"""
+    ddi = 0
+    components = []
+    for dd in dropdowns:
+        print(dd)
+        components.append ( Select(placeholder = placeholder_texts[ddi], options = [SelectOption(label = role.name, value = role.id) for role in dd]))
+        ddi += 1
+    msg = await channel.send(content=msg_text, components = components )
 
 @client.command()
 @commands.guild_only()
@@ -24,12 +66,15 @@ async def mass_create_roles(ctx, mentionable : bool, hoist : bool, *, role_names
         created_role_mentions.append(new_role.mention)
     await ctx.send (f"Created roles {' '.join(created_role_mentions)}")
 
+
+
 @client.event
 async def on_select_option(interaction):
     removed_mentions = []
 
     # remove prev role
-    roleOptions = interaction.message.components[0].components[0].options
+    roleOptions = [comp.components[0].options for comp in interaction.message.components]
+    roleOptions = list(chain(*roleOptions)) # flattern above list
     userRolesIds = [role.id for role in interaction.user.roles]
     for roleOption in roleOptions:
         rid = int(roleOption.value)
